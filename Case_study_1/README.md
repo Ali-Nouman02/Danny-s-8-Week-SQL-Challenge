@@ -10,3 +10,5 @@ View the case study here.
 - [Dataset](#dataset)
 - [Entity Relationship Diagram](#Entity Relationship Diagram)
 - [Case Study Questions](#case_study_questions)
+
+  ## Introduction
