@@ -29,5 +29,5 @@ Danny wants to use the data to answer a few simple questions about his customers
 
 ## Entity Relationship Diagram
 
-![My Project Logo](https://github.com/Ali-Nouman02/Danny-s-8-Week-SQL-Challenge/blob/7aa67f7f3c589e881549fb7608b978027082be5d/Case_study_1/ERP%20diagram.png)
-https://github.com/Ali-Nouman02/Danny-s-8-Week-SQL-Challenge/blob/7aa67f7f3c589e881549fb7608b978027082be5d/Case_study_1/ERP%20diagram.png
+![diagram](https://github.com/Ali-Nouman02/Danny-s-8-Week-SQL-Challenge/blob/7aa67f7f3c589e881549fb7608b978027082be5d/Case_study_1/ERP%20diagram.png)
+
