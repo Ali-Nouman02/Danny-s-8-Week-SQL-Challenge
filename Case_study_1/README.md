@@ -8,7 +8,7 @@ View the case study here.
 - [Introduction](#introduction)
 - [Problem Statement](#problem_statement)
 - [Dataset](#dataset)
-- [Entity Relationship Diagram](#Entity Relationship Diagram)
+- [Entity Relationship Diagram](#entity_relationship_diagram)
 - [Case Study Questions](#case_study_questions)
 
   ## Introduction
