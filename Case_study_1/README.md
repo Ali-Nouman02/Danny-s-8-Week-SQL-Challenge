@@ -26,3 +26,7 @@ Danny wants to use the data to answer a few simple questions about his customers
         what menu items were ordered.
 -menu: The menu table maps the product_id to the actual product_name and price of each menu item.
 -members: The members table captures the join_date when a customer_id joined the beta version of the Danny’s Diner loyalty program.
+
+## Entity Relationship Diagram
+
+(Case_study_1/ERP diagram.png)
