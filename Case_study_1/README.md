@@ -6,10 +6,10 @@ View the case study here.
 
 ## **Table Of Contents**
 - [Introduction](#introduction)
-- [Problem Statement](#problem_statement)
+- [Problem Statement](#problem-statement)
 - [Dataset](#dataset)
-- [Entity Relationship Diagram](#entity_relationship_diagram)
-- [Case Study Questions](#case_study_questions)
+- [Entity Relationship Diagram](#entity-relationship-diagram)
+- [Case Study Questions](#case-study-questions)
 
 ## Introduction
 Danny seriously loves Japanese food so in the beginning of 2021, he decides to embark upon a risky venture and opens up a cute little restaurant that sells his 3 favourite foods: sushi, curry and ramen.
