@@ -29,4 +29,4 @@ Danny wants to use the data to answer a few simple questions about his customers
 
 ## Entity Relationship Diagram
 
-(Case_study_1/ERP diagram.png)
+![My Project Logo](Case_study_1/ERP diagram.png)
