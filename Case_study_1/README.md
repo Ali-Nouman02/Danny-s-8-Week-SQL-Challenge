@@ -6,7 +6,7 @@ View the case study here.
 
 ## **Table Of Contents**
 - [Introduction](#introduction)
-- [Features](#features)
-- [Installation](#installation)
-- [Usage](#usage)
-- [Conclusion](#conclusion)
+- [Problem Statement](#problem_statement)
+- [Dataset](#dataset)
+- [Entity Relationship Diagram](#Entity Relationship Diagram)
+- [Case Study Questions](#case_study_questions)
