@@ -258,7 +258,6 @@ ORDER BY total_points DESC
 
 ![ss_question_10](https://github.com/user-attachments/assets/14f91192-da0e-42f9-8fa8-99f5a42b9fd1)
 
-
 ***
 
 ###  Bonus Questions
@@ -267,20 +266,24 @@ ORDER BY total_points DESC
 Create basic data tables that Danny and his team can use to quickly derive insights without needing to join the underlying tables using SQL. Fill Member column as 'N' if the purchase was made before becoming a member and 'Y' if the after is amde after joining the membership.
 
 ```sql
-SELECT customer_id,
-       order_date,
-       product_name,
-       price,
-       IF(order_date >= join_date, 'Y', 'N') AS member
-FROM members
-RIGHT JOIN sales USING (customer_id)
-INNER JOIN menu USING (product_id)
-ORDER BY customer_id,
-         order_date;
+SELECT 
+	S.customer_id, 
+    S.order_date, 
+    M.product_name,
+    M.price,
+CASE 
+	WHEN  G.join_date IS NOT NULL AND order_date >= join_date THEN 'Y'
+    ELSE 'N'
+END AS member
+FROM sales AS S
+JOIN menu AS M ON M.product_id = S.product_id 
+LEFT JOIN members AS G ON G.customer_id = S.customer_id 
+;
 ``` 
 	
 #### Result set:
-![image](https://user-images.githubusercontent.com/77529445/167406964-25276db9-fe1c-4608-8b77-b0970b156888.png)
+
+![joining_all_things](https://github.com/user-attachments/assets/99e48b65-a95e-4fb4-828b-95f4fd891a93)
 
 ***
 
@@ -288,37 +291,39 @@ ORDER BY customer_id,
 Danny also requires further information about the ranking of customer products, but he purposely does not need the ranking for non-member purchases so he expects null ranking values for the records when customers are not yet part of the loyalty program.
 
 ```sql
-SELECT customer_id,
-       order_date,
-       product_name,
-       price,
-       IF(order_date >= join_date, 'Y', 'N') AS member
-FROM members
-RIGHT JOIN sales USING (customer_id)
-INNER JOIN menu USING (product_id)
-ORDER BY customer_id,
-         order_date;
-``` 
-```sql
-WITH data_table AS
-  (SELECT customer_id,
-          order_date,
-          product_name,
-          price,
-          IF(order_date >= join_date, 'Y', 'N') AS member
-   FROM members
-   RIGHT JOIN sales USING (customer_id)
-   INNER JOIN menu USING (product_id)
-   ORDER BY customer_id,
-            order_date)
-SELECT *,
-       IF(member='N', NULL, DENSE_RANK() OVER (PARTITION BY customer_id, member
-                                               ORDER BY order_date)) AS ranking
-FROM data_table;
+-- RANKING ALL THINGS
+
+WITH CTE AS(
+	SELECT 
+		S.customer_id, 
+		S.order_date, 
+		M.product_name,
+		M.price,
+	CASE 
+		WHEN G.join_date IS NOT NULL AND order_date >= join_date THEN 'Y'
+		ELSE 'N'
+	END AS member
+	FROM sales AS S
+	JOIN menu AS M ON M.product_id = S.product_id 
+	LEFT JOIN members AS G ON G.customer_id = S.customer_id
+    ) 
+SELECT 
+	customer_id, 
+	order_date, 
+	product_name,
+	price,
+    member,
+CASE 
+	WHEN member = 'Y' THEN DENSE_RANK() OVER(PARTITION BY customer_id, member ORDER BY order_date) 
+	ELSE 'null'
+END AS ranking
+FROM CTE
+;
 ```
 
 #### Result set:
-![image](https://user-images.githubusercontent.com/77529445/167407504-41d02dd0-0bd1-4a3c-8f41-00ae07daefad.png)
+
+![ranking_all_things](https://github.com/user-attachments/assets/6c3feae1-8e81-42e3-8312-60d9ccc9586c)
 
 
 ***
