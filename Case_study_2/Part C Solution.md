@@ -16,130 +16,115 @@
 
 ***
 
-## Temporary tables created to solve the below queries
-
-```sql
-DROP TABLE row_split_customer_orders_temp;
-
-CREATE
-TEMPORARY TABLE row_split_customer_orders_temp AS
-SELECT t.row_num,
-       t.order_id,
-       t.customer_id,
-       t.pizza_id,
-       trim(j1.exclusions) AS exclusions,
-       trim(j2.extras) AS extras,
-       t.order_time
-FROM
-  (SELECT *,
-          row_number() over() AS row_num
-   FROM customer_orders_temp) t
-INNER JOIN json_table(trim(replace(json_array(t.exclusions), ',', '","')),
-                      '$[*]' columns (exclusions varchar(50) PATH '$')) j1
-INNER JOIN json_table(trim(replace(json_array(t.extras), ',', '","')),
-                      '$[*]' columns (extras varchar(50) PATH '$')) j2 ;
-
-
-SELECT *
-FROM row_split_customer_orders_temp;
-``` 
-![image](https://user-images.githubusercontent.com/77529445/168322232-dfbf27e4-519c-413d-ad8d-1b110903f7ee.png)
-
-
-```sql
-DROP TABLE row_split_pizza_recipes_temp;
-
-CREATE
-TEMPORARY TABLE row_split_pizza_recipes_temp AS
-SELECT t.pizza_id,
-       trim(j.topping) AS topping_id
-FROM pizza_recipes t
-JOIN json_table(trim(replace(json_array(t.toppings), ',', '","')),
-                '$[*]' columns (topping varchar(50) PATH '$')) j ;
-
-
-SELECT *
-FROM row_split_pizza_recipes_temp;
-``` 
-![image](https://user-images.githubusercontent.com/77529445/168322313-099d7901-7d46-4390-81f2-1d18605a5084.png)
-
-
-```sql
-DROP TABLE IF EXISTS standard_ingredients;
-
-CREATE
-TEMPORARY TABLE standard_ingredients AS
-SELECT pizza_id,
-       pizza_name,
-       group_concat(DISTINCT topping_name) 'standard_ingredients'
-FROM row_split_pizza_recipes_temp
-INNER JOIN pizza_names USING (pizza_id)
-INNER JOIN pizza_toppings USING (topping_id)
-GROUP BY pizza_name
-ORDER BY pizza_id;
-
-SELECT *
-FROM standard_ingredients;
-``` 
-![image](https://user-images.githubusercontent.com/77529445/168322650-34dee02f-573d-495e-a75f-eeec2c295d21.png)
-
-
-```sql
-
-``` 
 
 
 ###  1. What are the standard ingredients for each pizza?
 
 ```sql
-SELECT *
-FROM standard_ingredients;
+WITH CTE AS (
+	SELECT 
+		pizza_id,
+		TRIM(topping) AS 'topping_id'
+	FROM 
+		pizza_recipes AS PR,
+		JSON_TABLE(
+			CONCAT('["', REPLACE(toppings, ',', '","'), '"]'),
+			'$[*]' COLUMNS (topping VARCHAR(255) PATH '$')
+		) 
+	AS toppings_split
+    )
+SELECT 
+	CTE.pizza_id,
+    GROUP_CONCAT(PT.topping_name) AS 'standard_ingredients'
+FROM CTE
+JOIN pizza_toppings AS PT on PT.topping_id = CTE.topping_id
+GROUP BY pizza_id
+ORDER BY pizza_id;
 ``` 
 	
 #### Result set:
-![image](https://user-images.githubusercontent.com/77529445/167685439-27c169a5-dd82-4b60-bc4a-82f73f694b3a.png)
+
+![question_1](https://github.com/user-attachments/assets/19ba5655-d5a1-4ab2-b811-73a97d21be37)
 
 ***
 
 ###  2. What was the most commonly added extra?
 
 ```sql
-WITH extra_count_cte AS
-  (SELECT trim(extras) AS extra_topping,
-          count(*) AS purchase_counts
-   FROM row_split_customer_orders_temp
-   WHERE extras IS NOT NULL
-   GROUP BY extras)
-SELECT topping_name,
-       purchase_counts
-FROM extra_count_cte
-INNER JOIN pizza_toppings ON extra_count_cte.extra_topping = pizza_toppings.topping_id
-LIMIT 1;
+DROP TABLE temp_extras; 
+
+CREATE TEMPORARY TABLE temp_extras AS
+	SELECT 
+		order_id, 
+		extras
+	FROM customer_orders
+    WHERE extras != 'null';
+
+WITH CTE AS (    
+	SELECT 
+		TRIM(extra) AS 'extra_id',
+		COUNT(*) AS 'nr_of_count'
+	FROM temp_extras AS TE,
+	JSON_TABLE(
+				CONCAT('["', REPLACE(extras, ',', '","'), '"]'),
+				'$[*]' COLUMNS (extra VARCHAR(255) PATH '$')
+			) 
+		AS extras_split
+		GROUP BY extra_id
+		ORDER BY nr_of_count DESC
+		LIMIT 1 
+		)
+SELECT 
+	PT.topping_name AS 'most_common_topping'
+FROM CTE AS CT
+JOIN pizza_toppings AS PT ON PT.topping_id = CT.extra_id
+;
 ``` 
 	
 #### Result set:
-![image](https://user-images.githubusercontent.com/77529445/167685675-148a98ac-ea68-4978-8536-91ff5425f505.png)
+
+![question_2](https://github.com/user-attachments/assets/4719f2bd-18f3-4f95-894c-b2394c8567ef)
 
 ***
 
 ###  3. What was the most common exclusion?
 
 ```sql
-WITH extra_count_cte AS
-  (SELECT trim(exclusions) AS extra_topping,
-          count(*) AS purchase_counts
-   FROM row_split_customer_orders_temp
-   WHERE exclusions IS NOT NULL
-   GROUP BY exclusions)
-SELECT topping_name,
-       purchase_counts
-FROM extra_count_cte
-INNER JOIN pizza_toppings ON extra_count_cte.extra_topping = pizza_toppings.topping_id
-LIMIT 1;
+-- Create temp table with no null value from customer_orders table
+
+DROP TABLE temp_exclusion; 
+CREATE TEMPORARY TABLE temp_exclusion AS
+	SELECT 
+		order_id, 
+		exclusions
+	FROM customer_orders
+    WHERE exclusions != 'null';
+
+
+WITH CTE AS (    
+	SELECT 
+		TRIM(exclusion) AS 'exclusion_id',
+		COUNT(*) AS 'nr_of_count'
+	FROM temp_exclusion AS TE,
+	JSON_TABLE(
+				CONCAT('["', REPLACE(exclusions, ',', '","'), '"]'),
+				'$[*]' COLUMNS (exclusion VARCHAR(255) PATH '$')
+			) 
+		AS exclusion_split
+		GROUP BY exclusion_id
+		ORDER BY nr_of_count DESC
+		LIMIT 1 
+		)
+SELECT 
+	PT.topping_name AS 'most_excluded_topping'
+FROM CTE AS CT
+JOIN pizza_toppings AS PT ON PT.topping_id = CT.exclusion_id
+;
 ``` 
 	
 #### Result set:
-![image](https://user-images.githubusercontent.com/77529445/167685795-8a0ae1c6-0447-4e1f-aa84-70c68407549b.png)
+
+![question_3](https://github.com/user-attachments/assets/1ec858af-1a84-40ba-a857-58903fadf409)
 
 ***
 
@@ -150,46 +135,93 @@ LIMIT 1;
 - Meat Lovers - Exclude Cheese, Bacon - Extra Mushroom, Peppers
 
 ```sql
-WITH order_summary_cte AS
-  (SELECT pizza_name,
-          row_num,
-          order_id,
-          customer_id,
-          excluded_topping,
-          t2.topping_name AS extras_topping
-   FROM
-     (SELECT *,
-             topping_name AS excluded_topping
-      FROM row_split_customer_orders_temp
-      LEFT JOIN standard_ingredients USING (pizza_id)
-      LEFT JOIN pizza_toppings ON topping_id = exclusions) t1
-   LEFT JOIN pizza_toppings t2 ON t2.topping_id = extras)
-SELECT order_id,
-       customer_id,
-       CASE
-           WHEN excluded_topping IS NULL
-                AND extras_topping IS NULL THEN pizza_name
-           WHEN extras_topping IS NULL
-                AND excluded_topping IS NOT NULL THEN concat(pizza_name, ' - Exclude ', GROUP_CONCAT(DISTINCT excluded_topping))
-           WHEN excluded_topping IS NULL
-                AND extras_topping IS NOT NULL THEN concat(pizza_name, ' - Include ', GROUP_CONCAT(DISTINCT extras_topping))
-           ELSE concat(pizza_name, ' - Include ', GROUP_CONCAT(DISTINCT extras_topping), ' - Exclude ', GROUP_CONCAT(DISTINCT excluded_topping))
-       END AS order_item
-FROM order_summary_cte
-GROUP BY row_num;
+DROP TABLE temp_exclude_and_extra;
+-- changing data from comma seperated values into multiple rows
+CREATE TEMPORARY TABLE temp_exclude_and_extra AS
+SELECT 
+	order_id,
+    pizza_id,
+	TRIM(exclusion) AS 'Temp_exclude',
+    TRIM(extra) AS 'Temp_extra'
+FROM customer_orders AS CO,
+JSON_TABLE(
+			CONCAT('["', REPLACE(exclusions, ',', '","'), '"]'),
+			'$[*]' COLUMNS (exclusion VARCHAR(255) PATH '$')
+		) AS exclusion_split,
+JSON_TABLE(
+			CONCAT('["', REPLACE(extras, ',', '","'), '"]'),
+			'$[*]' COLUMNS (extra VARCHAR(255) PATH '$')
+		) AS extra_split;
+
+
+
+CREATE TEMPORARY TABLE temp_four AS
+SELECT 
+	order_id, 
+    EE.pizza_id, 
+    PN.pizza_name,
+    PT_1.topping_name AS 'EXCLUDE', 
+    PT_2.topping_name AS 'EXTRA'
+FROM temp_exclude_and_extra AS EE
+LEFT JOIN pizza_toppings AS PT_1 ON PT_1.topping_id = EE.Temp_exclude
+LEFT JOIN pizza_toppings AS PT_2 ON PT_2.topping_id = EE.Temp_extra
+LEFT JOIN pizza_names AS PN on PN.pizza_id = EE.pizza_id ;
+
+-- final results 
+WITH CTE AS(
+	SELECT 
+		order_id,
+		pizza_id,
+		pizza_name,
+		CONCAT(
+			IFNULL(
+				CONCAT(
+					'Include ', 
+					GROUP_CONCAT(DISTINCT extra ORDER BY extra SEPARATOR ', ')
+				), 
+				''
+			),
+			IF(
+				CONCAT(
+					GROUP_CONCAT(DISTINCT extra ORDER BY extra SEPARATOR ', ')
+				) != '' AND CONCAT(
+					GROUP_CONCAT(DISTINCT exclude ORDER BY exclude SEPARATOR ', ')
+				) != '', 
+				' - ', 
+				''
+			),
+			IFNULL(
+				CONCAT(
+					'Exclude ', 
+					GROUP_CONCAT(DISTINCT exclude ORDER BY exclude SEPARATOR ', ')
+				), 
+				''
+			)
+		) AS 'include_exclude'
+	FROM temp_four
+	GROUP BY 
+		order_id, 
+		pizza_id, 
+		pizza_name
+		)
+SELECT 
+	order_id, 
+	CONCAT(IF (include_exclude != '',CONCAT(pizza_name,' - ',include_exclude), ''),
+    IF (include_exclude = '', pizza_name,''))  AS 'order_item'
+FROM CTE;
+
 ``` 
 	
 #### Result set:
-![image](https://user-images.githubusercontent.com/77529445/167685922-38e6d766-7159-401d-9ba9-361113965dc5.png)
+
+![question_4](https://github.com/user-attachments/assets/058f4f4e-9a5c-43fe-81e8-74db7c7d34d5)
 
 ***
 
 ###  5. Generate an alphabetically ordered comma separated ingredient list for each pizza order from the customer_orders table and add a 2x in front of any relevant ingredients
-- For example: "Meat Lovers: 2xBacon, Beef, ... , Salami"
+- skip
 
-```sql
 
-``` 
 	
 #### Result set:
 
