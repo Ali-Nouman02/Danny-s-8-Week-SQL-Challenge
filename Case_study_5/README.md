@@ -8,7 +8,6 @@ View the case study [here](https://8weeksqlchallenge.com/case-study-5/)
   - [Introduction](#introduction)
   - [Problem Statement](#problem-statement)
   - [Dataset used](#dataset-used)
-  - [Case Study Solutions](#case-study-solutions)
   
 ## Introduction
 Data Mart is Danny’s latest venture and after running international operations for his online supermarket that specialises in fresh produce - Danny is asking for your support to analyse his sales performance.
@@ -37,8 +36,4 @@ Each record in the dataset is related to a specific aggregated slice of the unde
 ![image](https://user-images.githubusercontent.com/77529445/189491192-978f144f-03b6-4dce-b69b-342e212e48e2.png)
 
 
-## Case Study Solutions
-- [A. Data Cleansing Steps](https://github.com/manaswikamila05/8-Week-SQL-Challenge/blob/main/Case%20Study%20%23%205%20-%20Data%20Mart/1.%20Data%20Cleansing%20Steps.md)
-- [B. Data Exploration]()
-- [C. Before & After Analysis]()
-- [D. Bonus Question]()
+
