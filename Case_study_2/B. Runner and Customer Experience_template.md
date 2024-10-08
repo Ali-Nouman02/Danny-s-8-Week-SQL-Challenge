@@ -13,124 +13,170 @@
 ***
 
 ###  1. How many runners signed up for each 1 week period? (i.e. week starts 2021-01-01)
-- Returned week number is between 0 and 52 or 0 and 53.
-- Default mode of the week =0 -> First day of the week is Sunday
-- Extract week -> WEEK(registration_date) or EXTRACT(week from registration_date)
 
 ```sql
-SELECT week(registration_date) as 'Week of registration',
-       count(runner_id) as 'Number of runners'
-FROM pizza_runner.runners
-GROUP BY 1;
+SELECT 
+	WEEK(registration_date) AS 'week_nr',
+    COUNT(runner_id)
+FROM runners
+GROUP BY week_nr; 
 ``` 
 	
 #### Result set:
-![image](https://user-images.githubusercontent.com/77529445/164647808-eb3031b8-e120-4e8d-bc7f-64fa512d4aac.png)
+
+![question_1](https://github.com/user-attachments/assets/bfcdd6ac-4dd6-4079-9853-a4ece10c0cc7)
 
 ***
 
 ###  2. What was the average time in minutes it took for each runner to arrive at the Pizza Runner HQ to pickup the order?
 
 ```sql
-SELECT runner_id,
-       TIMESTAMPDIFF(MINUTE, order_time, pickup_time) AS runner_pickup_time,
-       round(avg(TIMESTAMPDIFF(MINUTE, order_time, pickup_time)), 2) avg_runner_pickup_time
-FROM runner_orders_temp
-INNER JOIN customer_orders_temp USING (order_id)
-WHERE cancellation IS NULL
-GROUP BY runner_id;
+WITH CTE AS ( 
+	SELECT 
+		runner_id, 
+		MINUTE(TIMEDIFF(order_time,pickup_time)) AS 'time_in_min'
+	FROM runner_orders AS RO 
+    JOIN customer_orders AS CO ON CO.order_id = RO.order_id
+    WHERE pickup_time != 'null'
+	)
+SELECT
+	runner_id,
+	CONCAT(CEIL(AVG(time_in_min)),' mins') AS 'avg_pickup_time'
+FROM CTE
+GROUP BY runner_id; 
 ``` 
 	
 #### Result set:
-![image](https://user-images.githubusercontent.com/77529445/164702992-fbc50aa6-7e66-45c7-8e77-7e906a77e004.png)
+![question_2](https://github.com/user-attachments/assets/a3a87056-3e97-427a-814b-b985af6adcea)
 
 ***
 
 ###  3. Is there any relationship between the number of pizzas and how long the order takes to prepare?
 
 ```sql
-WITH order_count_cte AS
-  (SELECT order_id,
-          COUNT(order_id) AS pizzas_order_count,
-          TIMESTAMPDIFF(MINUTE, order_time, pickup_time) AS prep_time
-   FROM runner_orders_temp
-   INNER JOIN customer_orders_temp USING (order_id)
-   WHERE cancellation IS NULL
-   GROUP BY order_id)
-SELECT pizzas_order_count,
-       round(avg(prep_time), 2)
-FROM order_count_cte
-GROUP BY pizzas_order_count;
+WITH CTE AS(
+	SELECT
+		CO.order_id, 
+		CO.customer_id,
+		COUNT(*) AS 'amount_of_pizzas',
+		CONCAT(MINUTE(TIMEDIFF(order_time,pickup_time)),' mins') AS 'prep_time'
+	FROM customer_orders AS CO
+	JOIN runner_orders AS RO ON RO.order_id = CO.order_id
+	WHERE pickup_time != 'null'
+	GROUP BY order_id,customer_id,prep_time
+	ORDER BY amount_of_pizzas DESC
+	)
+SELECT
+	amount_of_pizzas, 
+    AVG(prep_time) AS 'avg_prep_time'
+FROM CTE
+GROUP BY  amount_of_pizzas
+;
 ``` 
 	
 #### Result set:
-![image](https://user-images.githubusercontent.com/77529445/164703063-bb11984c-6ff6-4464-953a-7d7b6c686946.png)
+
+![question_3](https://github.com/user-attachments/assets/577442cf-8a9c-4159-ad5a-62dca82ee8b0)
 
 ***
 
 ###  4. What was the average distance travelled for each customer?
 
 ```sql
-SELECT customer_id,
-       round(avg(distance), 2) AS 'average_distance_travelled'
-FROM runner_orders_temp
-INNER JOIN customer_orders_temp USING (order_id)
-WHERE cancellation IS NULL
-GROUP BY customer_id;
+SELECT 
+	customer_id,
+	AVG(CAST(REPLACE(distance,'km', '') AS DECIMAL(3,1))) AS 'distance'
+FROM customer_orders AS CO
+JOIN runner_orders AS RO ON RO.order_id = CO.order_id
+WHERE distance != 'null'
+GROUP BY customer_id
+;
 ``` 
 	
 #### Result set:
-![image](https://user-images.githubusercontent.com/77529445/164703130-5fcf4130-4da3-438d-bed5-ea1ac2eeeaaf.png)
+
+![question_4](https://github.com/user-attachments/assets/c4e13fd8-ff63-4907-8601-4b2735d05f22)
 
 ***
 
 ###  5. What was the difference between the longest and shortest delivery times for all orders?
 
 ```sql
-SELECT MIN(duration) minimum_duration,
-       MAX(duration) AS maximum_duration,
-       MAX(duration) - MIN(duration) AS maximum_difference
-FROM runner_orders_temp;
+WITH CTE AS (
+	SELECT
+		order_id, 
+		runner_id,
+		CAST(LEFT(duration,2) AS DECIMAL(3,0)) AS 'time'
+	FROM runner_orders
+	WHERE pickup_time != 'null'
+	) 
+SELECT 
+	(MAX(time) - MIN(time)) AS 'diff'
+FROM CTE
+;
 ``` 
 	
 #### Result set:
-![image](https://user-images.githubusercontent.com/77529445/164703196-70c37c17-b217-45f2-ba3a-caace379475f.png)
+
+![question_5](https://github.com/user-attachments/assets/24a28d64-8eb5-45d2-a0fb-112879089e03)
 
 ***
 
 ###  6. What was the average speed for each runner for each delivery and do you notice any trend for these values?
 
 ```sql
-SELECT runner_id,
-       distance AS distance_km,
-       round(duration/60, 2) AS duration_hr,
-       round(distance*60/duration, 2) AS average_speed
-FROM runner_orders_temp
-WHERE cancellation IS NULL
-ORDER BY runner_id;
+WITH CTE AS(
+	SELECT
+		order_id, 
+		runner_id,
+		CAST(REPLACE(distance,'km', '') AS DECIMAL(3,1)) AS 'distance',
+		CAST(LEFT(duration,2) AS DECIMAL(3,0)) AS 'time'
+	FROM runner_orders
+	WHERE pickup_time != 'null'
+	)
+SELECT
+	order_id,
+    runner_id,
+	ROUND(AVG(distance / CTE.time),2) AS 'avg_speed_per_min'
+FROM CTE
+GROUP BY runner_id, order_id
+ORDER BY order_id
+;
 ``` 
 	
 #### Result set:
-![image](https://user-images.githubusercontent.com/77529445/164703262-5d728ac2-3080-4015-a387-6f6afc63c82c.png)
+
+![question_6](https://github.com/user-attachments/assets/341d66b0-2559-4df3-a9db-28288e1d8229)
 
 ***
 
 ###  7. What is the successful delivery percentage for each runner?
 
 ```sql
-SELECT runner_id,
-       COUNT(pickup_time) AS delivered_orders,
-       COUNT(*) AS total_orders,
-       ROUND(100 * COUNT(pickup_time) / COUNT(*)) AS delivery_success_percentage
-FROM runner_orders_temp
-GROUP BY runner_id
-ORDER BY runner_id;
+-- alter the cancellation column so that empty cells have 'null' as value
+START TRANSACTION;
+SET SQL_SAFE_UPDATES = 0;
+
+UPDATE runner_orders
+SET cancellation = 'null'
+WHERE TRIM(cancellation) = '' OR cancellation IS NULL  ;
+
+COMMIT;
+SET SQL_SAFE_UPDATES = 1;
+
+SELECT
+	runner_id,
+	COUNT(*) AS 'number_of_delivery',
+    COUNT(CASE WHEN cancellation = 'null' THEN 1 END) AS 'nr_of_successful_delivery',
+    ROUND((COUNT(CASE WHEN cancellation = 'null' THEN 1 END) / COUNT(*)) * 100,1) AS 'success_rate'
+FROM runner_orders
+GROUP BY runner_id;
 ``` 
 	
 #### Result set:
-![image](https://user-images.githubusercontent.com/77529445/164703324-de88203a-e673-498c-b775-8cae9523673d.png)
+
+![question_7](https://github.com/user-attachments/assets/9619408c-44d8-4ab1-9969-aa5389aa8920)
 
 ***
 
-Click [here](https://github.com/manaswikamila05/8-Week-SQL-Challenge/blob/main/Case%20Study%20%23%202%20-%20Pizza%20Runner/C.%20Ingredient%20Optimisation.md) to view the  solution of C. Ingredient Optimisation!
 
