@@ -329,6 +329,6 @@ FROM CTE
 ***
 
 
-Click [here]([https://github.com/manaswikamila05/8-Week-SQL-Challenge](https://github.com/Ali-Nouman02/Danny-s-8-Week-SQL-Challenge)) to move back to the 8-Week-SQL-Challenge repository!
+Click [here](https://github.com/Ali-Nouman02/Danny-s-8-Week-SQL-Challenge) to move back to the 8-Week-SQL-Challenge repository!
 
 
