@@ -31,341 +31,233 @@ GROUP BY customer_id;
 ###  2. How many days has each customer visited the restaurant?
 
 ```sql
-SELECT customer_id,
-       count(DISTINCT order_date) AS visit_count
-FROM dannys_diner.sales
-GROUP BY customer_id
-ORDER BY customer_id;
+SELECT customer_id,COUNT(DISTINCT(order_date)) AS 'nr_of_visits' FROM sales
+GROUP BY customer_id;
 ``` 
 	
 #### Result set:
-| customer_id | visit_count |
-| ----------- | ----------- |
-| A           | 4           |
-| B           | 6           |
-| C           | 2           |
+
+![ss_question_2](https://github.com/user-attachments/assets/cb6c9afe-5372-4393-8fe3-5cdc0c14e401)
 
 ***
 
 ###  3. What was the first item from the menu purchased by each customer?
 
 ```sql
-WITH order_info_cte AS
-  (SELECT customer_id,
-          order_date,
-          product_name,
-          DENSE_RANK() OVER(PARTITION BY s.customer_id
-                            ORDER BY s.order_date) AS rank_num
-   FROM dannys_diner.sales AS s
-   JOIN dannys_diner.menu AS m ON s.product_id = m.product_id)
-SELECT customer_id,
-       product_name
-FROM order_info_cte
-WHERE rank_num = 1
-GROUP BY customer_id,
-         product_name;
+-- OPTION 1 
+WITH CTE AS (
+	SELECT 
+		S.customer_id,
+		M.product_name,
+		S.order_date,
+		DENSE_RANK() OVER(PARTITION BY customer_id ORDER BY order_date) as 'rnk'
+	FROM sales AS S
+	JOIN menu AS M ON M.product_id = S.product_id
+    )
+SELECT *
+FROM CTE
+WHERE rnk = '1';
 ``` 
-	
 #### Result set:
-| customer_id | product_name |
-| ----------- | ------------ |
-| A           | curry        |
-| A           | sushi        |
-| B           | curry        |
-| C           | ramen        |
+
+![ss_question_3_option_1](https://github.com/user-attachments/assets/e03ddee6-c472-4fa2-8887-919d8359881f)
+
 
 ```sql
-WITH order_info_cte AS
-  (SELECT customer_id,
-          order_date,
-          product_name,
-          DENSE_RANK() OVER(PARTITION BY s.customer_id
-                            ORDER BY s.order_date) AS rank_num
-   FROM dannys_diner.sales AS s
-   JOIN dannys_diner.menu AS m ON s.product_id = m.product_id)
-  SELECT customer_id,
-          GROUP_CONCAT(DISTINCT product_name
-                    ORDER BY product_name) AS product_name
-   FROM order_info_cte
-   WHERE rank_num = 1
-   GROUP BY customer_id
+-- OPTION 2
+WITH CTE AS(
+	SELECT 
+		S.customer_id,
+		M.product_name,
+		S.order_date,
+		ROW_NUMBER() OVER(PARTITION BY customer_id ORDER BY order_date) as 'rn'
+	FROM sales AS S
+	JOIN menu AS M ON M.product_id = S.product_id
+    )
+SELECT *
+FROM CTE
+WHERE rn = '1'
 ;
 ``` 
 	
 #### Result set:
-![image](https://user-images.githubusercontent.com/77529445/165887304-a1e2e494-a611-43b0-af50-3674d2133f09.png)
+
+![ss_question_3_option_2](https://github.com/user-attachments/assets/1dfb177b-e25d-424d-a0a6-1030f7718f97)
 
 ***
 
 ###  4. What is the most purchased item on the menu and how many times was it purchased by all customers?
 
 ```sql
-SELECT product_name AS most_purchased_item,
-       count(sales.product_id) AS order_count
-FROM dannys_diner.menu
-INNER JOIN dannys_diner.sales ON menu.product_id = sales.product_id
-GROUP BY product_name
-ORDER BY order_count DESC
+SELECT 
+	M.product_name,
+	COUNT(*) AS 'highest'
+FROM sales AS S
+JOIN menu AS M ON M.product_id = S.product_id
+GROUP BY M.product_name
+ORDER BY highest DESC
 LIMIT 1;
 ``` 
 	
 #### Result set:
-| most_purchased_item | order_count |
-| ------------------- | ----------- |
-| ramen               | 8           |
 
-```sql
-SELECT most_purchased_item,
-       max(order_count) AS order_count
-FROM
-  (SELECT product_name AS most_purchased_item,
-          count(sales.product_id) AS order_count
-   FROM dannys_diner.menu
-   INNER JOIN dannys_diner.sales ON menu.product_id = sales.product_id
-   GROUP BY product_name
-   ORDER BY order_count DESC) max_purchased_item;
-``` 
-	
-#### Result set:
-![image](https://user-images.githubusercontent.com/77529445/165887623-4abffa33-c5d1-4e20-b8a8-8cd0d8c16e7a.png)
+![ss_question_4](https://github.com/user-attachments/assets/9f730e1f-f4da-4f57-b274-37feefb5d14a)
 
 ***
 
 ###  5. Which item was the most popular for each customer?
 
 ```sql
-WITH order_info AS
-  (SELECT product_name,
-          customer_id,
-          count(product_name) AS order_count,
-          rank() over(PARTITION BY customer_id
-                      ORDER BY count(product_name) DESC) AS rank_num
-   FROM dannys_diner.menu
-   INNER JOIN dannys_diner.sales ON menu.product_id = sales.product_id
-   GROUP BY customer_id,
-            product_name)
-SELECT customer_id,
-       product_name,
-       order_count
-FROM order_info
-WHERE rank_num =1;
+WITH CTE AS (
+	SELECT 
+		S.customer_id, 
+		M.product_name,
+		COUNT(*) AS 'no_of_purchases',
+		ROW_NUMBER() OVER(PARTITION BY S.customer_id ORDER BY COUNT(*) DESC) AS 'rn'
+	FROM sales AS s 
+	JOIN menu AS M on M.product_id = S.product_id
+	GROUP BY S.customer_id, M.product_name
+	)
+SELECT * FROM CTE
+WHERE rn = '1';
 ``` 
 	
 #### Result set:
-| customer_id | product_name | order_count |
-| ----------- | ------------ | ----------- |
-| A           | ramen        | 3           |
-| B           | ramen        | 2           |
-| B           | curry        | 2           |
-| B           | sushi        | 2           |
-| C           | ramen        | 3           |
 
-```sql
-WITH order_info AS
-  (SELECT product_name,
-          customer_id,
-          count(product_name) AS order_count,
-          rank() over(PARTITION BY customer_id
-                      ORDER BY count(product_name) DESC) AS rank_num
-   FROM dannys_diner.menu
-   INNER JOIN dannys_diner.sales ON menu.product_id = sales.product_id
-   GROUP BY customer_id,
-            product_name)
-SELECT customer_id,
-       GROUP_CONCAT(DISTINCT product_name
-                    ORDER BY product_name) AS product_name,
-       order_count
-FROM order_info
-WHERE rank_num =1
-GROUP BY customer_id;
-``` 
-	
-#### Result set:
-![image](https://user-images.githubusercontent.com/77529445/165887834-471f46c0-2520-4b83-88d9-d91310ceb87c.png)
+![ss_question_5](https://github.com/user-attachments/assets/98287083-b3c0-47c9-aef2-5a2cb36793b4)
 
 ***
 
 ###  6. Which item was purchased first by the customer after they became a member?
 
 ```sql
-WITH diner_info AS
-  (SELECT product_name,
-          s.customer_id,
-          order_date,
-          join_date,
-          m.product_id,
-          DENSE_RANK() OVER(PARTITION BY s.customer_id
-                            ORDER BY s.order_date) AS first_item
-   FROM dannys_diner.menu AS m
-   INNER JOIN dannys_diner.sales AS s ON m.product_id = s.product_id
-   INNER JOIN dannys_diner.members AS mem ON mem.customer_id = s.customer_id
-   WHERE order_date >= join_date )
-SELECT customer_id,
-       product_name,
-       order_date
-FROM diner_info
-WHERE first_item=1;
+WITH CTE AS (
+	SELECT 
+		S.customer_id,
+		S.order_date,
+		M.product_name,
+		T.join_date,
+		ROW_NUMBER() OVER(PARTITION BY S.customer_id ORDER BY S.order_date) AS 'rn'
+	FROM sales AS S
+	JOIN menu AS M ON M.product_id = S.product_id
+	LEFT JOIN members AS T ON T.customer_id = S.customer_id
+	WHERE order_date >= join_date
+	) 
+SELECT customer_id, 
+		product_name,
+        order_date, 
+        join_date
+FROM CTE 
+WHERE rn = '1'
+; 
 ``` 
 	
 #### Result set:
-| customer_id | product_name | order_date               |
-| ----------- | ------------ | ------------------------ |
-| A           | curry        | 2021-01-07T00:00:00.000Z |
-| B           | sushi        | 2021-01-11T00:00:00.000Z |
+
+![ss_question_6](https://github.com/user-attachments/assets/82109659-39ba-41fc-8e56-47d44501dd4a)
 
 ***
 
 ###  7. Which item was purchased just before the customer became a member?
 
 ```sql
-WITH diner_info AS
-  (SELECT product_name,
-          s.customer_id,
-          order_date,
-          join_date,
-          m.product_id,
-          DENSE_RANK() OVER(PARTITION BY s.customer_id
-                            ORDER BY s.order_date DESC) AS item_rank
-   FROM dannys_diner.menu AS m
-   INNER JOIN dannys_diner.sales AS s ON m.product_id = s.product_id
-   INNER JOIN dannys_diner.members AS mem ON mem.customer_id = s.customer_id
-   WHERE order_date < join_date )
-SELECT customer_id,
-       GROUP_CONCAT(DISTINCT product_name
-                    ORDER BY product_name) AS product_name,
-       order_date,
-       join_date
-FROM diner_info
-WHERE item_rank=1
-GROUP BY customer_id;
+WITH CTE AS (
+	SELECT 
+		S.customer_id,
+		S.order_date,
+		M.product_name,
+		T.join_date,
+		ROW_NUMBER() OVER(PARTITION BY S.customer_id ORDER BY S.order_date DESC) AS 'rn'
+	FROM sales AS S
+	JOIN menu AS M ON M.product_id = S.product_id
+	LEFT JOIN members AS T ON T.customer_id = S.customer_id
+	WHERE order_date < join_date
+	) 
+SELECT customer_id, 
+		product_name, 
+        order_date, 
+        join_date
+FROM CTE 
+WHERE rn = '1'
+;
 ``` 
 	
 #### Result set:
-| customer_id | product_name | order_date               | join_date                |
-| ----------- | ------------ | ------------------------ | ------------------------ |
-| A           | curry,sushi  | 2021-01-01T00:00:00.000Z | 2021-01-07T00:00:00.000Z |
-| B           | sushi        | 2021-01-04T00:00:00.000Z | 2021-01-09T00:00:00.000Z |
+
+![ss_question_7](https://github.com/user-attachments/assets/7d7f1134-3431-4ede-9acc-3b2a5daa5c82)
 
 ***
 
 ###  8. What is the total items and amount spent for each member before they became a member?
 
 ```sql
-SELECT s.customer_id,
-       count(product_name) AS total_items,
-       CONCAT('$', SUM(price)) AS amount_spent
-FROM dannys_diner.menu AS m
-INNER JOIN dannys_diner.sales AS s ON m.product_id = s.product_id
-INNER JOIN dannys_diner.members AS mem ON mem.customer_id = s.customer_id
+SELECT 
+	S.customer_id,
+	COUNT(M.product_name) AS 'total_item_purchased',
+    SUM(M.price) AS 'total_amount_spent',
+	T.join_date,
+	ROW_NUMBER() OVER(PARTITION BY S.customer_id ORDER BY SUM(M.price) DESC) AS 'rn'
+FROM sales AS S
+JOIN menu AS M ON M.product_id = S.product_id
+LEFT JOIN members AS T ON T.customer_id = S.customer_id
 WHERE order_date < join_date
-GROUP BY s.customer_id
-ORDER BY customer_id;
+GROUP BY S.customer_id, T.join_date
+;
+
 ``` 
 	
 #### Result set:
-| customer_id | total_items | amount_spent |
-| ----------- | ----------- | ------------ |
-| A           | 2           | $25          |
-| B           | 3           | $40          |
+
+![ss_question_8](https://github.com/user-attachments/assets/540847c0-ab46-4814-8bd4-23d4212bddfb)
 
 ***
 
 ###  9.  If each $1 spent equates to 10 points and sushi has a 2x points multiplier - how many points would each customer have?
 
-#### Had the customer joined the loyalty program before making the purchases, total points that each customer would have accrued
-```sql
-SELECT customer_id,
-       SUM(CASE
-               WHEN product_name = 'sushi' THEN price*20
-               ELSE price*10
-           END) AS customer_points
-FROM dannys_diner.menu AS m
-INNER JOIN dannys_diner.sales AS s ON m.product_id = s.product_id
-GROUP BY customer_id
-ORDER BY customer_id;
-``` 
-	
-#### Result set:
-| customer_id | customer_points |
-| ----------- | --------------- |
-| A           | 860             |
-| B           | 940             |
-| C           | 360             |
 
-#### Total points that each customer has accrued after taking a membership
 ```sql
-SELECT s.customer_id,
-       SUM(CASE
-               WHEN product_name = 'sushi' THEN price*20
-               ELSE price*10
-           END) AS customer_points
-FROM dannys_diner.menu AS m
-INNER JOIN dannys_diner.sales AS s ON m.product_id = s.product_id
-INNER JOIN dannys_diner.members AS mem ON mem.customer_id = s.customer_id
-WHERE order_date >= join_date
-GROUP BY s.customer_id
-ORDER BY s.customer_id;
+SELECT 
+	S.customer_id,
+SUM(CASE
+	WHEN M.product_name = 'sushi' THEN price * 20
+	ELSE price * 10
+END) AS points
+FROM sales as S 
+JOIN menu AS M ON M.product_id = S.product_id
+GROUP BY S.customer_id;
 ``` 
 	
 #### Result set:
-| customer_id | customer_points |
-| ----------- | --------------- |
-| A           | 510             |
-| B           | 440             |
+
+![ss_question_9](https://github.com/user-attachments/assets/e348a3db-f49f-4bd6-930b-10c49c49f586)
 
 ***
 
 ###  10. In the first week after a customer joins the program (including their join date) they earn 2x points on all items, not just sushi - how many points do customer A and B have at the end of January
 
-#### Steps
-1. Find the program_last_date which is 7 days after a customer joins the program (including their join date)
-2. Determine the customer points for each transaction and for members with a membership
-- During the first week of the membership -> points = price*20 irrespective of the purchase item
-- Product = Sushi -> and order_date is not within a week of membership -> points = price*20
-- Product = Not Sushi -> and order_date is not within a week of membership -> points = price*10
-3. Conditions in WHERE clause
-- order_date <= '2021-01-31' -> Order must be placed before 31st January 2021
-- order_date >= join_date -> Points awarded to only customers with a membership
 
 ```sql
-WITH program_last_day_cte AS
-  (SELECT join_date,
-          DATE_ADD(join_date, INTERVAL 6 DAY) AS program_last_date,
-          customer_id
-   FROM dannys_diner.members)
-SELECT s.customer_id,
-       SUM(CASE
-               WHEN order_date BETWEEN join_date AND program_last_date THEN price*10*2
-               WHEN order_date NOT BETWEEN join_date AND program_last_date
-                    AND product_name = 'sushi' THEN price*10*2
-               WHEN order_date NOT BETWEEN join_date AND program_last_date
-                    AND product_name != 'sushi' THEN price*10
-           END) AS customer_points
-FROM dannys_diner.menu AS m
-INNER JOIN dannys_diner.sales AS s ON m.product_id = s.product_id
-INNER JOIN program_last_day_cte AS mem ON mem.customer_id = s.customer_id
-AND order_date <='2021-01-31'
-AND order_date >=join_date
-GROUP BY s.customer_id
-ORDER BY s.customer_id;
+SELECT 
+	S.customer_id,
+SUM(CASE
+	WHEN order_date BETWEEN join_date AND ADDDATE(G.join_date, '6') THEN price * 10 * 2 
+    WHEN M.product_name = 'sushi' THEN price * 10 * 2
+	ELSE price * 10
+END) AS 'total_points'
+FROM sales as S 
+JOIN menu AS M ON M.product_id = S.product_id
+JOIN members AS G on G.customer_id = S.customer_id
+WHERE order_date <= '2021-01-31'
+GROUP BY S.customer_id
+ORDER BY total_points DESC
+;
 ``` 
-```sql
-SELECT s.customer_id,
-       SUM(IF(order_date BETWEEN join_date AND DATE_ADD(join_date, INTERVAL 6 DAY), price*10*2, IF(product_name = 'sushi', price*10*2, price*10))) AS customer_points
-FROM dannys_diner.menu AS m
-INNER JOIN dannys_diner.sales AS s ON m.product_id = s.product_id
-INNER JOIN dannys_diner.members AS mem USING (customer_id)
-WHERE order_date <='2021-01-31'
-  AND order_date >=join_date
-GROUP BY s.customer_id
-ORDER BY s.customer_id;
-``` 
+
 
 #### Result set:
-| customer_id | customer_points |
-| ----------- | --------------- |
-| A           | 1020            |
-| B           | 320             |
+
+![ss_question_10](https://github.com/user-attachments/assets/14f91192-da0e-42f9-8fa8-99f5a42b9fd1)
+
 
 ***
 
