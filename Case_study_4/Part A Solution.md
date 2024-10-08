@@ -13,142 +13,160 @@
 ###  1. How many unique nodes are there on the Data Bank system?
 
 ```sql
-SELECT count(DISTINCT node_id) AS unique_nodes
+SELECT 
+COUNT(DISTINCT(node_id)) AS 'nr_unique_nodes'
 FROM customer_nodes;
 ``` 
 	
 #### Result set:
-![image](https://user-images.githubusercontent.com/77529445/165895245-c6b15626-c023-4d1a-9aaa-43cf8d3f1878.png)
+
+![Part A_Question 1](https://github.com/user-attachments/assets/86cfbb66-3eea-4f9c-adb1-ceb3476e739f)
+
 
 ***
 
 ###  2. What is the number of nodes per region?
 
 ```sql
-SELECT region_id,
-       region_name,
-       count(node_id) AS node_count
-FROM customer_nodes
-INNER JOIN regions USING(region_id)
-GROUP BY region_id;
+SELECT
+	cn.region_id,
+    r.region_name,
+	COUNT(node_id) AS 'nr_nodes' 
+FROM customer_nodes AS cn
+JOIN regions AS r ON r.region_id = cn.region_id
+GROUP BY cn.region_id,r.region_name;
+
 ``` 
 	
 #### Result set:
-![image](https://user-images.githubusercontent.com/77529445/165895305-a8e9c09d-b2ea-4377-9f5f-a9d14c7d14e8.png)
+
+![PartA_Question 2](https://github.com/user-attachments/assets/80f01145-657c-455b-a4d1-472a1e67f90f)
 
 ***
 
 ###  3. How many customers are allocated to each region?
 
 ```sql
-SELECT region_id,
-       region_name,
-       count(DISTINCT customer_id) AS customer_count
-FROM customer_nodes
-INNER JOIN regions USING(region_id)
-GROUP BY region_id;
+SELECT 
+	cn.region_id,
+    r.region_name,
+    COUNT(customer_id) AS 'nr_of_customers'
+FROM customer_nodes AS cn
+JOIN regions AS r ON r.region_id = cn.region_id
+GROUP BY cn.region_id, r.region_name;
 ``` 
 	
 #### Result set:
-![image](https://user-images.githubusercontent.com/77529445/165895370-9639af80-4f0b-45c7-8063-6faa3beafc55.png)
+
+![question 3](https://github.com/user-attachments/assets/d35afd3e-2598-4f71-92cd-98bb3023b65e)
 
 ***
 
 ###  4. How many days on average are customers reallocated to a different node?
 
 ```sql
-SELECT round(avg(datediff(end_date, start_date)), 2) AS avg_days
+SELECT 
+    ROUND(AVG(DATEDIFF(end_date,start_date)),2) AS 'nr_of_days'
 FROM customer_nodes
-WHERE end_date!='9999-12-31';
+WHERE end_date != '9999-12-31';
 ``` 
 	
 #### Result set:
-![image](https://user-images.githubusercontent.com/77529445/165895454-321fad36-bd71-442f-a7a3-ab99e8749151.png)
+
+![question 4](https://github.com/user-attachments/assets/df61739e-3609-4b64-8159-815be8dd5eb4)
 
 ***
 
 ###  5. What is the median, 80th and 95th percentile for this same reallocation days metric for each region?
-- reallocation days metric: days taken to reallocate to a different node
-- Percentile found by partitioning the dataset by regions and arranging it in ascending order of reallocation_days
-- 95th percentile -> 95% of the values are less than or equal to the current value.
+
+
+**Median**
+```sql
+-- correct query Median for all data(not grouped by region)
+
+SET @rowindex := -1;
+WITH CTE AS (
+	SELECT
+		region_id,
+		DATEDIFF(end_date,start_date) AS 'nr_of_days'
+	FROM customer_nodes
+	WHERE end_date != '9999-12-31'
+),
+CTE_2 AS (
+SELECT 
+	@rowindex:=@rowindex + 1 AS 'rowindex',
+	nr_of_days
+FROM CTE
+ORDER BY nr_of_days ASC
+)
+SELECT 
+	AVG(nr_of_days) AS 'median'
+FROM CTE_2
+WHERE 
+	rowindex IN (FLOOR(@rowindex /2), CEIL(@rowindex /2));
+``` 
+	
+#### Result set:
+
+![question 5](https://github.com/user-attachments/assets/d291eea2-47ce-4ae3-abe3-b2d25845703c)
+
+
+**80th percentile**
+
+```sql
+-- 80 percentile 
+
+WITH CTE AS (
+	SELECT
+		cn.region_id,
+		r.region_name,
+        DATEDIFF(end_date,start_date) AS 'days_diff',
+		ROUND(PERCENT_RANK() OVER(ORDER BY DATEDIFF(end_date,start_date)),2) AS 'per_rank' 
+	FROM customer_nodes AS cn
+	JOIN regions AS r ON r.region_id = cn.region_id
+	WHERE end_date != '9999-12-31'
+)
+SELECT
+	region_name,
+	days_diff
+FROM CTE
+WHERE per_rank >= 0.80
+GROUP BY region_name, days_diff
+;
+``` 
+	
+#### Result set:
+
+![question 5 80 percentile](https://github.com/user-attachments/assets/3666586b-6f65-4b7b-b7bd-2dcd721863a0)
 
 
 **95th percentile**
 ```sql
-WITH reallocation_days_cte AS
-  (SELECT *,
-          (datediff(end_date, start_date)) AS reallocation_days
-   FROM customer_nodes
-   INNER JOIN regions USING (region_id)
-   WHERE end_date!='9999-12-31'),
-     percentile_cte AS
-  (SELECT *,
-          percent_rank() over(PARTITION BY region_id
-                              ORDER BY reallocation_days)*100 AS p
-   FROM reallocation_days_cte)
-SELECT region_id,
-       region_name,
-       reallocation_days
-FROM percentile_cte
-WHERE p >95
-GROUP BY region_id;
+-- 95 percentile
+
+WITH CTE AS (
+	SELECT
+		cn.region_id,
+		r.region_name,
+        DATEDIFF(end_date,start_date) AS 'days_diff',
+		ROUND(PERCENT_RANK() OVER(ORDER BY DATEDIFF(end_date,start_date)),2) AS 'per_rank' 
+	FROM customer_nodes AS cn
+	JOIN regions AS r ON r.region_id = cn.region_id
+	WHERE end_date != '9999-12-31'
+)
+SELECT
+	region_name,
+	days_diff
+FROM CTE
+WHERE per_rank >= 0.95
+GROUP BY region_name, days_diff
+;
 ``` 
 	
 #### Result set:
-![image](https://user-images.githubusercontent.com/77529445/167305418-be293295-3379-4f88-ad26-4324832d04ff.png)
 
-
-**80th percentile**
-```sql
-WITH reallocation_days_cte AS
-  (SELECT *,
-          (datediff(end_date, start_date)) AS reallocation_days
-   FROM customer_nodes
-   INNER JOIN regions USING (region_id)
-   WHERE end_date!='9999-12-31'),
-     percentile_cte AS
-  (SELECT *,
-          percent_rank() over(PARTITION BY region_id
-                              ORDER BY reallocation_days)*100 AS p
-   FROM reallocation_days_cte)
-SELECT region_id,
-       region_name,
-       reallocation_days
-FROM percentile_cte
-WHERE p >95
-GROUP BY region_id;
-``` 
-	
-#### Result set:
-![image](https://user-images.githubusercontent.com/77529445/167305462-ed0ae44f-14a8-497a-8a77-275784464e6b.png)
-
-
-**50th percentile**
-```sql
-WITH reallocation_days_cte AS
-  (SELECT *,
-          (datediff(end_date, start_date)) AS reallocation_days
-   FROM customer_nodes
-   INNER JOIN regions USING (region_id)
-   WHERE end_date!='9999-12-31'),
-     percentile_cte AS
-  (SELECT *,
-          percent_rank() over(PARTITION BY region_id
-                              ORDER BY reallocation_days)*100 AS p
-   FROM reallocation_days_cte)
-SELECT region_id,
-       region_name,
-       reallocation_days
-FROM percentile_cte
-WHERE p >50
-GROUP BY region_id;
-``` 
-	
-#### Result set:
-![image](https://user-images.githubusercontent.com/77529445/167305484-9721af81-a887-4e64-9b1a-81e41862d323.png)
-
+![question 5_95_percentile](https://github.com/user-attachments/assets/9eb6a54c-41c8-431c-a888-4814d9c283c0)
 
 ***
 
-
-Click [here](https://github.com/manaswikamila05/8-Week-SQL-Challenge/blob/main/Case%20Study%20%23%204%20-%20Data%20Bank/B.%20Customer%20Transactions.md) to view the solution of B. Customer Transactions.md!
+Click [here](https://github.com/Ali-Nouman02/Danny-s-8-Week-SQL-Challenge) to move back to the 8-Week-SQL-Challenge repository!
