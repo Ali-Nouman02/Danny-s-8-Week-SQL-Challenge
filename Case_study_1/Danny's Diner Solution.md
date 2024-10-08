@@ -17,20 +17,14 @@
 ###  1. What is the total amount each customer spent at the restaurant?
 
 ```sql
-SELECT customer_id,
-       CONCAT('$', sum(price)) AS total_sales
-FROM dannys_diner.menu
-INNER JOIN dannys_diner.sales ON menu.product_id = sales.product_id
-GROUP BY customer_id
-ORDER BY customer_id;
+SELECT customer_id, sum(price) as 'total_spent' FROM sales
+JOIN menu ON menu.product_id = sales.product_id
+GROUP BY customer_id;
 ``` 
 	
 #### Result set:
-| customer_id | total_sales |
-| ----------- | ----------- |
-| A           | $76         |
-| B           | $74         |
-| C           | $36         |
+
+![ss_question_1](https://github.com/user-attachments/assets/47d4d754-6e5b-4874-9b0a-07ced062873f)
 
 ***
 
