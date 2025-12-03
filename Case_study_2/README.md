@@ -44,6 +44,5 @@ There are some known data issues with few tables. Data cleaning was performed an
 - In the duration column, there are null values. The 'minutes', 'mins' 'minute' must be stripped
 - In the cancellation column, there are blank spaces and null values.
 
-Click [here](https://github.com/manaswikamila05/8-Week-SQL-Challenge/blob/main/Case%20Study%20%23%202%20-%20Pizza%20Runner/Data%20Clean.md) to view the data cleaning peformed.
 
 
